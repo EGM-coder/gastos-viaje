@@ -24,7 +24,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .card h2 { font-size: 14px; font-weight: 700; color: #003366; margin-bottom: 14px; }
 .fg { margin-bottom: 12px; }
 .fg label { display: block; font-size: 11px; font-weight: 600; color: #5a6a7a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
-.fg input, .fg select { width: 100%; padding: 10px 12px; border: 1.5px solid #e0e4e8; border-radius: 10px; font-size: 15px; color: #1a1a2e; background: #f8f9fb; }
+.fg input { width: 100%; padding: 10px 12px; border: 1.5px solid #e0e4e8; border-radius: 10px; font-size: 15px; color: #1a1a2e; background: #f8f9fb; }
 .fg input:focus { outline: none; border-color: #003366; background: white; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .btn { width: 100%; padding: 13px; border: none; border-radius: 11px; font-size: 14px; font-weight: 700; cursor: pointer; margin-bottom: 8px; }
@@ -130,11 +130,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <div class="upload" onclick="document.getElementById('tFile').click()">
         <div style="font-size:32px">📷</div>
         <p>Toca para subir foto o PDF</p>
-        <small>JPG, PNG, PDF · Se adjunta al informe final</small>
+        <small>Cámara · Galería · Archivos PDF</small>
       </div>
-      <input type="file" id="tFile" accept="image/*,application/pdf" capture="environment" style="display:none" onchange="handleFile(event)">
+      <input type="file" id="tFile" accept="image/*,application/pdf" style="display:none" onchange="handleFile(event)">
       <img id="tPrev" class="prev" style="display:none">
-      <div class="ocr-box ocr-loading" id="ocrBox">Leyendo ticket con Claude...</div>
+      <div class="ocr-box ocr-loading" id="ocrBox"></div>
       <button class="btn purple" id="ocrBtn" onclick="runOCR()" style="display:none">🤖 Leer ticket automáticamente</button>
     </div>
     <div class="card">
@@ -170,7 +170,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="card"><h2>📊 Resumen por categoría</h2><div id="eSummary"></div></div>
   <div class="card">
     <h2>📤 Generar documentos</h2>
-    <p style="font-size:13px;color:#8896a6;margin-bottom:14px">El informe incluye la tabla Nordex completa y todos los tickets adjuntos como imágenes. Ábrelo y pulsa Imprimir para guardarlo como PDF.</p>
+    <p style="font-size:13px;color:#8896a6;margin-bottom:14px">El informe incluye la tabla Nordex completa y todos los tickets adjuntos. Ábrelo y pulsa Imprimir para guardarlo como PDF.</p>
     <button class="btn primary" onclick="exportCSV()">📊 Descargar CSV (Excel)</button>
     <button class="btn success" onclick="exportHTML()">📄 Generar informe completo</button>
   </div>
