@@ -58,4 +58,416 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1a1a2e; color: white; padding: 10px 22px; border-radius: 100px; font-size: 13px; z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
 .toast.on { opacity: 1; }
 .badge { background: #003366; color: white; border-radius: 100px; padding: 1px 7px; font-size: 11px; font-weight: 700; margin-left: 4px; }
-.upload { border: 2px dashed #378ADD; border-radius: 12px; padding: 24px 16px; text-align: center; background: #eef4ff; c
+.upload { border: 2px dashed #378ADD; border-radius: 12px; padding: 24px 16px; text-align: center; background: #eef4ff; cursor: pointer; margin-bottom: 12px; }
+.upload p { font-size: 13px; color: #185FA5; font-weight: 600; margin-top: 6px; }
+.upload small { font-size: 11px; color: #8896a6; }
+.prev { width: 100%; max-height: 180px; object-fit: contain; border-radius: 10px; margin-bottom: 12px; border: 1px solid #e0e4e8; }
+.ocr-box { border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px; display: none; }
+.ocr-loading { background: #EEEDFE; border: 1px solid #AFA9EC; color: #3C3489; }
+.ocr-ok { background: #EAF3DE; border: 1px solid #97C459; color: #3B6D11; }
+.ocr-err { background: #FCEBEB; border: 1px solid #F09595; color: #A32D2D; }
+.api-note { background: #f8f9fb; border-radius: 10px; padding: 10px 12px; font-size: 12px; color: #8896a6; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="app">
+<div class="hdr">
+  <div style="font-size:10px;background:rgba(255,255,255,0.2);display:inline-block;padding:2px 8px;border-radius:4px;margin-bottom:4px;letter-spacing:1px">NORDEX</div>
+  <h1>Gastos de viaje</h1>
+  <p id="hdrSub">Configura tu viaje para empezar</p>
+</div>
+<div class="tabs">
+  <div class="tab on" onclick="goTab('viaje')">✈️ Viaje</div>
+  <div class="tab" onclick="goTab('ticket')">➕ Ticket</div>
+  <div class="tab" onclick="goTab('lista')">📋 Lista <span class="badge" id="cnt">0</span></div>
+  <div class="tab" onclick="goTab('export')">📤 Exportar</div>
+</div>
+<div class="body">
+
+<!-- VIAJE -->
+<div class="sec on" id="sec-viaje">
+  <div id="vform">
+    <div class="card">
+      <h2>✈️ Nuevo viaje</h2>
+      <div class="fg"><label>Destino *</label><input id="vNom" placeholder="Berlin, Hamburg, Shanghai..."></div>
+      <div class="fg"><label>Propósito del viaje</label><input id="vPur" placeholder="Supplier Review Q1 2026"></div>
+      <div class="fg"><label>Código objetivo</label><input id="vCod" placeholder="CC-1234"></div>
+      <div class="row2">
+        <div class="fg"><label>Fecha inicio *</label><input type="date" id="vFrom"></div>
+        <div class="fg"><label>Fecha fin *</label><input type="date" id="vTo"></div>
+      </div>
+      <div class="fg"><label>Nombre completo *</label><input id="vName" value="Eric Gahimbare"></div>
+      <button class="btn primary" onclick="startTrip()">Iniciar viaje</button>
+    </div>
+    <div class="card">
+      <h2>🤖 OCR automático (Claude API)</h2>
+      <div class="fg"><label>API Key de Anthropic</label><input type="password" id="apiKey" placeholder="sk-ant-..."></div>
+      <button class="btn gray" onclick="saveKey()">Guardar API key</button>
+      <div class="api-note">La clave se guarda solo en este dispositivo. Coste estimado: menos de 0,20€/año para uso personal.</div>
+    </div>
+  </div>
+  <div id="vactivo" style="display:none">
+    <div class="trip-box">
+      <h3 id="aName">—</h3>
+      <p id="aDates">—</p>
+      <div class="stats">
+        <div class="stat"><div class="stat-v" id="sTix">0</div><div class="stat-l">Tickets</div></div>
+        <div class="stat"><div class="stat-v" id="sTot">0€</div><div class="stat-l">Total</div></div>
+        <div class="stat"><div class="stat-v" id="sDias">0</div><div class="stat-l">Días</div></div>
+      </div>
+    </div>
+    <button class="btn gray" onclick="newTrip()">+ Nuevo viaje</button>
+    <button class="btn gray" onclick="editKey()">🔑 Cambiar API key</button>
+  </div>
+</div>
+
+<!-- TICKET -->
+<div class="sec" id="sec-ticket">
+  <div id="noViajeMsg" class="empty" style="display:none">✈️<br><br>Primero inicia un viaje</div>
+  <div id="tform">
+    <div class="card">
+      <h2>📸 Foto del ticket</h2>
+      <div class="upload" onclick="document.getElementById('tFile').click()">
+        <div style="font-size:32px">📷</div>
+        <p>Toca para subir foto o PDF</p>
+        <small>JPG, PNG, PDF · Se adjunta al informe final</small>
+      </div>
+      <input type="file" id="tFile" accept="image/*,application/pdf" capture="environment" style="display:none" onchange="handleFile(event)">
+      <img id="tPrev" class="prev" style="display:none">
+      <div class="ocr-box ocr-loading" id="ocrBox">Leyendo ticket con Claude...</div>
+      <button class="btn purple" id="ocrBtn" onclick="runOCR()" style="display:none">🤖 Leer ticket automáticamente</button>
+    </div>
+    <div class="card">
+      <h2>📝 Confirma los datos</h2>
+      <div class="fg"><label>Fecha</label><input type="date" id="tFecha"></div>
+      <div class="fg"><label>Importe (€)</label><input type="number" id="tImp" placeholder="0.00" step="0.01" min="0"></div>
+      <div class="fg"><label>Categoría</label>
+        <div class="cats">
+          <div class="cat" onclick="selCat(this,'Restaurant')"><span>🍽️</span>Restaurant</div>
+          <div class="cat" onclick="selCat(this,'Taxis/Others')"><span>🚕</span>Taxi/Otros</div>
+          <div class="cat" onclick="selCat(this,'Parking')"><span>🅿️</span>Parking</div>
+          <div class="cat" onclick="selCat(this,'Gasoline')"><span>⛽</span>Gasolina</div>
+          <div class="cat" onclick="selCat(this,'Highway')"><span>🛣️</span>Autopista</div>
+          <div class="cat" onclick="selCat(this,'Hotel')"><span>🏨</span>Hotel</div>
+          <div class="cat" onclick="selCat(this,'Tickets/Plane')"><span>✈️</span>Vuelo/Tren</div>
+          <div class="cat" onclick="selCat(this,'Various')"><span>📦</span>Varios</div>
+        </div>
+      </div>
+      <div class="fg"><label>Descripción (opcional)</label><input id="tDesc" placeholder="Cena con proveedor, taxi al aeropuerto..."></div>
+      <button class="btn primary" onclick="addTicket()">✅ Guardar ticket</button>
+    </div>
+  </div>
+</div>
+
+<!-- LISTA -->
+<div class="sec" id="sec-lista">
+  <div id="lEmpty" class="empty">🧾<br><br>No hay tickets aún.<br>Añade el primero desde Ticket.</div>
+  <div id="lList"></div>
+</div>
+
+<!-- EXPORTAR -->
+<div class="sec" id="sec-export">
+  <div class="card"><h2>📊 Resumen por categoría</h2><div id="eSummary"></div></div>
+  <div class="card">
+    <h2>📤 Generar documentos</h2>
+    <p style="font-size:13px;color:#8896a6;margin-bottom:14px">El informe incluye la tabla Nordex completa y todos los tickets adjuntos como imágenes. Ábrelo y pulsa Imprimir para guardarlo como PDF.</p>
+    <button class="btn primary" onclick="exportCSV()">📊 Descargar CSV (Excel)</button>
+    <button class="btn success" onclick="exportHTML()">📄 Generar informe completo</button>
+  </div>
+</div>
+
+</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+let viaje = null, tickets = [], selCatVal = '', fileData = null;
+
+function load() {
+  try { viaje = JSON.parse(localStorage.getItem('nx_v') || 'null'); } catch(e){}
+  try { tickets = JSON.parse(localStorage.getItem('nx_t') || '[]'); } catch(e){}
+  const k = localStorage.getItem('nx_k');
+  if (k) document.getElementById('apiKey').value = k;
+  ui();
+}
+
+function save() {
+  try {
+    localStorage.setItem('nx_v', JSON.stringify(viaje));
+    localStorage.setItem('nx_t', JSON.stringify(tickets));
+  } catch(e){ toast('Error guardando datos'); }
+}
+
+function saveKey() {
+  const k = document.getElementById('apiKey').value.trim();
+  if (!k.startsWith('sk-ant-')) { toast('⚠️ API key inválida — debe empezar por sk-ant-'); return; }
+  localStorage.setItem('nx_k', k);
+  toast('🔑 API key guardada');
+}
+
+function editKey() {
+  document.getElementById('vactivo').style.display = 'none';
+  document.getElementById('vform').style.display = 'block';
+}
+
+function toast(m) {
+  const t = document.getElementById('toast');
+  t.textContent = m; t.classList.add('on');
+  setTimeout(() => t.classList.remove('on'), 2500);
+}
+
+function goTab(t) {
+  const tabs = ['viaje','ticket','lista','export'];
+  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('on', tabs[i]===t));
+  document.querySelectorAll('.sec').forEach(s => s.classList.remove('on'));
+  document.getElementById('sec-'+t).classList.add('on');
+  if (t==='lista') renderList();
+  if (t==='export') renderExport();
+}
+
+function ui() {
+  const has = !!viaje;
+  document.getElementById('vform').style.display = has ? 'none' : 'block';
+  document.getElementById('vactivo').style.display = has ? 'block' : 'none';
+  document.getElementById('noViajeMsg').style.display = has ? 'none' : 'block';
+  document.getElementById('tform').style.display = has ? 'block' : 'none';
+  if (has) {
+    document.getElementById('aName').textContent = viaje.nom;
+    document.getElementById('aDates').textContent = fmt(viaje.from) + ' → ' + fmt(viaje.to);
+    document.getElementById('hdrSub').textContent = viaje.nom + ' · ' + tickets.length + ' tickets';
+    const tot = tickets.reduce((s,t) => s + parseFloat(t.imp||0), 0);
+    document.getElementById('sTix').textContent = tickets.length;
+    document.getElementById('sTot').textContent = tot.toFixed(0) + '€';
+    const d = Math.ceil((new Date(viaje.to) - new Date(viaje.from))/(86400000)) + 1;
+    document.getElementById('sDias').textContent = isNaN(d) ? 0 : d;
+    document.getElementById('tFecha').value = new Date().toISOString().split('T')[0];
+  }
+  document.getElementById('cnt').textContent = tickets.length;
+}
+
+function fmt(d) {
+  if (!d) return '—';
+  const p = d.split('-'); return p[2]+'/'+p[1]+'/'+p[0];
+}
+
+function startTrip() {
+  const nom = document.getElementById('vNom').value.trim();
+  const from = document.getElementById('vFrom').value;
+  const to = document.getElementById('vTo').value;
+  const name = document.getElementById('vName').value.trim();
+  if (!nom || !from || !to || !name) { toast('⚠️ Rellena los campos obligatorios'); return; }
+  viaje = { nom, pur: document.getElementById('vPur').value.trim(), cod: document.getElementById('vCod').value.trim(), from, to, name };
+  tickets = []; save(); ui(); toast('✅ Viaje iniciado: ' + nom);
+}
+
+function newTrip() {
+  if (!confirm('¿Crear nuevo viaje? Se borrarán los tickets actuales.')) return;
+  viaje = null; tickets = []; save(); ui();
+}
+
+function handleFile(e) {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    fileData = { name: f.name, type: f.type, data: ev.target.result };
+    if (f.type.startsWith('image/')) {
+      const p = document.getElementById('tPrev');
+      p.src = ev.target.result; p.style.display = 'block';
+      document.getElementById('ocrBtn').style.display = 'block';
+      document.getElementById('ocrBox').style.display = 'none';
+    } else {
+      document.getElementById('tPrev').style.display = 'none';
+      document.getElementById('ocrBtn').style.display = 'none';
+      toast('📎 PDF adjuntado: ' + f.name);
+    }
+  };
+  r.readAsDataURL(f);
+}
+
+async function runOCR() {
+  const apiKey = localStorage.getItem('nx_k');
+  if (!apiKey) { toast('⚠️ Primero guarda tu API key en la pestaña Viaje'); return; }
+  if (!fileData || !fileData.type.startsWith('image/')) { toast('⚠️ Sube una imagen primero'); return; }
+
+  const box = document.getElementById('ocrBox');
+  const btn = document.getElementById('ocrBtn');
+  box.className = 'ocr-box ocr-loading';
+  box.style.display = 'block';
+  box.textContent = '🤖 Leyendo ticket con Claude...';
+  btn.disabled = true;
+
+  try {
+    const base64 = fileData.data.split(',')[1];
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 300,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: fileData.type, data: base64 } },
+            { type: 'text', text: 'Analiza este ticket de gasto de viaje de empresa. Extrae: fecha (formato YYYY-MM-DD), importe total en euros (solo número decimal), categoría más apropiada (elige exactamente una de: Restaurant, Taxis/Others, Parking, Gasoline, Highway, Hotel, Tickets/Plane, Various), descripción breve del comercio o concepto (máximo 40 caracteres). Responde SOLO con JSON válido sin markdown: {"fecha":"2026-03-15","importe":"42.50","categoria":"Restaurant","descripcion":"Restaurante Central Berlin"}' }
+          ]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || 'Error ' + response.status);
+    }
+
+    const data = await response.json();
+    const raw = data.content[0].text.trim().replace(/```json?|```/g,'').trim();
+    const json = JSON.parse(raw);
+
+    if (json.fecha) document.getElementById('tFecha').value = json.fecha;
+    if (json.importe) document.getElementById('tImp').value = json.importe;
+    if (json.descripcion) document.getElementById('tDesc').value = json.descripcion;
+    if (json.categoria) {
+      selCatVal = json.categoria;
+      document.querySelectorAll('.cat').forEach(c => {
+        const match = c.getAttribute('onclick') && c.getAttribute('onclick').includes("'" + json.categoria + "'");
+        c.classList.toggle('on', match);
+      });
+    }
+
+    box.className = 'ocr-box ocr-ok';
+    box.textContent = '✅ Datos extraídos automáticamente. Revisa y confirma.';
+    toast('✅ Ticket leído correctamente');
+
+  } catch(err) {
+    box.className = 'ocr-box ocr-err';
+    box.textContent = '❌ Error: ' + err.message;
+    toast('❌ Error al leer el ticket');
+  }
+
+  btn.disabled = false;
+}
+
+function selCat(el, cat) {
+  document.querySelectorAll('.cat').forEach(c => c.classList.remove('on'));
+  el.classList.add('on'); selCatVal = cat;
+}
+
+function addTicket() {
+  if (!viaje) { toast('⚠️ Primero inicia un viaje'); return; }
+  const fecha = document.getElementById('tFecha').value;
+  const imp = document.getElementById('tImp').value;
+  const desc = document.getElementById('tDesc').value.trim();
+  if (!fecha) { toast('⚠️ Indica la fecha'); return; }
+  if (!imp || parseFloat(imp) <= 0) { toast('⚠️ Indica el importe'); return; }
+  if (!selCatVal) { toast('⚠️ Selecciona una categoría'); return; }
+  tickets.push({ id: Date.now(), fecha, imp: parseFloat(imp).toFixed(2), cat: selCatVal, desc, file: fileData ? {...fileData} : null });
+  save(); ui();
+  document.getElementById('tImp').value = '';
+  document.getElementById('tDesc').value = '';
+  document.getElementById('tPrev').style.display = 'none';
+  document.getElementById('tFile').value = '';
+  document.getElementById('ocrBtn').style.display = 'none';
+  document.getElementById('ocrBox').style.display = 'none';
+  document.querySelectorAll('.cat').forEach(c => c.classList.remove('on'));
+  selCatVal = ''; fileData = null;
+  toast('✅ Ticket guardado');
+  goTab('lista');
+}
+
+const emojis = {'Restaurant':'🍽️','Taxis/Others':'🚕','Parking':'🅿️','Gasoline':'⛽','Highway':'🛣️','Hotel':'🏨','Tickets/Plane':'✈️','Various':'📦'};
+
+function renderList() {
+  const c = document.getElementById('lList'), e = document.getElementById('lEmpty');
+  if (!tickets.length) { e.style.display='block'; c.innerHTML=''; return; }
+  e.style.display='none';
+  c.innerHTML = tickets.map(t => `
+    <div class="titem">
+      <div class="tico">${emojis[t.cat]||'📦'}</div>
+      <div class="tinf">
+        <h4>${t.cat}</h4>
+        <p>${fmt(t.fecha)}${t.desc?' · '+t.desc:''}${t.file?' 📎':''}</p>
+      </div>
+      <span class="tamt">${t.imp}€</span>
+      <button class="tdel" onclick="delT(${t.id})">✕</button>
+    </div>`).join('');
+}
+
+function delT(id) {
+  if (!confirm('¿Eliminar este ticket?')) return;
+  tickets = tickets.filter(t => t.id !== id);
+  save(); ui(); renderList(); toast('🗑️ Ticket eliminado');
+}
+
+function renderExport() {
+  const s = document.getElementById('eSummary');
+  if (!viaje || !tickets.length) { s.innerHTML='<p style="padding:12px 0;color:#8896a6;font-size:13px">No hay tickets aún.</p>'; return; }
+  const cats = {};
+  tickets.forEach(t => { cats[t.cat] = (cats[t.cat]||0) + parseFloat(t.imp); });
+  const tot = tickets.reduce((s,t) => s+parseFloat(t.imp),0);
+  s.innerHTML = Object.entries(cats).map(([c,v]) => `<div class="erow"><span>${emojis[c]||''} ${c}</span><span>${v.toFixed(2)}€</span></div>`).join('') +
+    `<div class="erow"><span>Total gastos</span><span>${tot.toFixed(2)}€</span></div>`;
+}
+
+function exportCSV() {
+  if (!viaje || !tickets.length) { toast('⚠️ No hay tickets'); return; }
+  const cats = {'Tickets/Plane':0,'Highway':0,'Gasoline':0,'Parking':0,'Taxis/Others':0,'Hotel':0,'Restaurant':0,'Various':0};
+  tickets.forEach(t => { if (cats.hasOwnProperty(t.cat)) cats[t.cat] += parseFloat(t.imp); });
+  let csv = 'Viaje;Nombre;Fecha;Dia;Categoria;Importe;Descripcion\n';
+  tickets.forEach(t => { csv += `"${viaje.nom}";"${viaje.name}";"${fmt(t.fecha)}";"${new Date(t.fecha).getDate()}";"${t.cat}";"${t.imp}";"${t.desc||''}"\n`; });
+  csv += '\nTOTALES POR CATEGORÍA\n';
+  Object.entries(cats).forEach(([c,v]) => { csv += `"${c}";"${v.toFixed(2)}"\n`; });
+  csv += `"TOTAL GENERAL";"${tickets.reduce((s,t)=>s+parseFloat(t.imp),0).toFixed(2)}"\n`;
+  const b = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(b); a.download='Gastos_'+viaje.nom+'_'+viaje.from+'.csv'; a.click();
+  toast('✅ CSV descargado');
+}
+
+function exportHTML() {
+  if (!viaje || !tickets.length) { toast('⚠️ No hay tickets'); return; }
+  const cats = {'Tickets/Plane':0,'Highway':0,'Gasoline':0,'Parking':0,'Taxis/Others':0,'Hotel':0,'Restaurant':0,'Various':0};
+  tickets.forEach(t => { if (cats.hasOwnProperty(t.cat)) cats[t.cat]+=parseFloat(t.imp); });
+  const tot = tickets.reduce((s,t)=>s+parseFloat(t.imp),0);
+  const byDay = {};
+  tickets.forEach(t => { if (!byDay[t.fecha]) byDay[t.fecha]=[]; byDay[t.fecha].push(t); });
+  const rows = Object.entries(byDay).sort().map(([f,ts])=>ts.map((t,i)=>`<tr>${i===0?`<td rowspan="${ts.length}" style="text-align:center;font-weight:bold">${new Date(f).getDate()}</td>`:''}<td>${t.cat==='Tickets/Plane'?t.imp:''}</td><td>${t.cat==='Highway'?t.imp:''}</td><td>${t.cat==='Gasoline'?t.imp:''}</td><td>${t.cat==='Parking'?t.imp:''}</td><td>${t.cat==='Taxis/Others'?t.imp:''}</td><td>${t.cat==='Hotel'?t.imp:''}</td><td>${t.cat==='Restaurant'?t.imp:''}</td><td>${t.cat==='Various'?t.imp:''}</td><td style="font-weight:bold">${t.imp}</td></tr>`).join('')).join('');
+  const imgs = tickets.filter(t=>t.file&&t.file.type&&t.file.type.startsWith('image/')).map((t,i)=>`<div style="page-break-inside:avoid;margin-bottom:16px;border:1px solid #ddd;border-radius:6px;padding:10px"><p style="font-weight:bold;margin-bottom:6px;font-size:11px">${i+1}. ${t.cat} — ${t.imp}€ — ${fmt(t.fecha)}${t.desc?' — '+t.desc:''}</p><img src="${t.file.data}" style="max-width:100%;max-height:350px;object-fit:contain;border-radius:4px"></div>`).join('');
+  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Gastos ${viaje.nom}</title><style>body{font-family:Arial,sans-serif;font-size:11px;margin:20px}h1{font-size:15px;text-align:center;margin-bottom:4px}.sub{text-align:center;font-size:10px;color:#666;margin-bottom:14px}table{width:100%;border-collapse:collapse;margin:12px 0}th{background:#003366;color:white;padding:5px 3px;font-size:10px;text-align:center}td{border:1px solid #ddd;padding:4px 3px;text-align:right}td:first-child{text-align:center}.tr td{background:#f0f4ff;font-weight:bold}.ib{border:1px solid #ddd;padding:8px;border-radius:4px;margin-bottom:6px}.ib label{font-weight:bold;display:block;font-size:10px;color:#666}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.sign{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px}.sb{border:1px solid #ddd;padding:12px;min-height:70px;border-radius:4px}.sb label{font-size:10px;color:#666;display:block;margin-bottom:4px}@media print{.noprint{display:none}}</style></head><body>
+<div class="noprint" style="text-align:center;margin-bottom:14px"><button onclick="window.print()" style="background:#003366;color:white;border:none;padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer">🖨️ Imprimir / Guardar PDF</button></div>
+<h1>TRAVEL EXPENSES NOTE</h1><p class="sub">Nordex SE · FE01_PE0304_SP · Rev01</p>
+<div class="grid2" style="margin:12px 0">
+<div class="ib"><label>NAME AND SURNAME</label>${viaje.name}</div>
+<div class="ib"><label>YEAR / MONTH</label>${viaje.from.split('-')[0]} / ${viaje.from.split('-')[1]}</div>
+<div class="ib"><label>LOCATION OF TRAVEL</label>${viaje.nom}</div>
+<div class="ib"><label>FROM / TO</label>${fmt(viaje.from)} — ${fmt(viaje.to)}</div>
+<div class="ib" style="grid-column:1/-1"><label>PURPOSE OF TRAVEL (Farms and/or Projects)</label>${viaje.pur||'—'}</div>
+<div class="ib"><label>OBJECTIVE CODE</label>${viaje.cod||'—'}</div>
+<div class="ib"><label>No. TICKETS</label>${tickets.length}</div>
+</div>
+<table><thead><tr><th>DAY</th><th>Tickets/Plane</th><th>Highway</th><th>Gasoline</th><th>Parking</th><th>Taxis/Others</th><th>Hotel</th><th>Restaurant</th><th>Various</th><th>SUBTOTAL</th></tr></thead>
+<tbody>${rows}
+<tr class="tr"><td>TOTAL EXPENSES</td><td>${cats['Tickets/Plane'].toFixed(2)}</td><td>${cats['Highway'].toFixed(2)}</td><td>${cats['Gasoline'].toFixed(2)}</td><td>${cats['Parking'].toFixed(2)}</td><td>${cats['Taxis/Others'].toFixed(2)}</td><td>${cats['Hotel'].toFixed(2)}</td><td>${cats['Restaurant'].toFixed(2)}</td><td>${cats['Various'].toFixed(2)}</td><td>${tot.toFixed(2)}</td></tr>
+</tbody></table>
+<div class="sign">
+<div class="sb"><label>Name, surname and signature of Applicant</label><br><br>${viaje.name}</div>
+<div class="sb"><label>Name, surname and Signature of person responsible</label><br><br></div>
+</div>
+<div class="sign" style="margin-top:8px">
+<div class="sb"><label>Submission date</label><br>${fmt(new Date().toISOString().split('T')[0])}</div>
+<div class="sb"><label>Approval date</label><br></div>
+</div>
+${imgs?`<div style="margin-top:28px"><h2 style="font-size:12px;border-bottom:2px solid #003366;padding-bottom:4px;margin-bottom:12px">JUSTIFICANTES ADJUNTOS (${tickets.filter(t=>t.file&&t.file.type&&t.file.type.startsWith('image/')).length} imágenes)</h2>${imgs}</div>`:''}
+</body></html>`;
+  const b=new Blob([html],{type:'text/html;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='TravelExpenses_'+viaje.nom+'_'+viaje.from+'.html'; a.click();
+  toast('✅ Informe descargado — ábrelo y pulsa Imprimir para PDF');
+}
+
+load();
+</script>
+</body>
+</html>
