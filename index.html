@@ -58,9 +58,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1a1a2e; color: white; padding: 10px 22px; border-radius: 100px; font-size: 13px; z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
 .toast.on { opacity: 1; }
 .badge { background: #003366; color: white; border-radius: 100px; padding: 1px 7px; font-size: 11px; font-weight: 700; margin-left: 4px; }
-.upload { border: 2px dashed #378ADD; border-radius: 12px; padding: 24px 16px; text-align: center; background: #eef4ff; cursor: pointer; margin-bottom: 12px; }
-.upload p { font-size: 13px; color: #185FA5; font-weight: 600; margin-top: 6px; }
-.upload small { font-size: 11px; color: #8896a6; }
+.upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.upload-btn { border: 2px dashed #378ADD; border-radius: 12px; padding: 20px 10px; text-align: center; background: #eef4ff; cursor: pointer; }
+.upload-btn p { font-size: 12px; color: #185FA5; font-weight: 600; margin-top: 6px; }
 .prev { width: 100%; max-height: 180px; object-fit: contain; border-radius: 10px; margin-bottom: 12px; border: 1px solid #e0e4e8; }
 .ocr-box { border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px; display: none; }
 .ocr-loading { background: #EEEDFE; border: 1px solid #AFA9EC; color: #3C3489; }
@@ -103,7 +103,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <h2>🤖 OCR automático (Claude API)</h2>
       <div class="fg"><label>API Key de Anthropic</label><input type="password" id="apiKey" placeholder="sk-ant-..."></div>
       <button class="btn gray" onclick="saveKey()">Guardar API key</button>
-      <div class="api-note">La clave se guarda solo en este dispositivo. Coste estimado: menos de 0,20€/año para uso personal.</div>
+      <div class="api-note">La clave se guarda solo en este dispositivo. Coste estimado: menos de 0,20€/año.</div>
     </div>
   </div>
   <div id="vactivo" style="display:none">
@@ -126,15 +126,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div id="noViajeMsg" class="empty" style="display:none">✈️<br><br>Primero inicia un viaje</div>
   <div id="tform">
     <div class="card">
-      <h2>📸 Foto del ticket</h2>
-      <div class="upload" onclick="document.getElementById('tFile').click()">
-        <div style="font-size:32px">📷</div>
-        <p>Toca para subir foto o PDF</p>
-        <small>Cámara · Galería · Archivos PDF</small>
+      <h2>📸 Adjuntar ticket</h2>
+      <div class="upload-grid">
+        <div class="upload-btn" onclick="document.getElementById('tFileCam').click()">
+          <div style="font-size:28px">📷</div>
+          <p>Tomar foto</p>
+        </div>
+        <div class="upload-btn" onclick="document.getElementById('tFileLib').click()">
+          <div style="font-size:28px">🖼️</div>
+          <p>Galería / PDF</p>
+        </div>
       </div>
-      <input type="file" id="tFile" accept="image/*,application/pdf" style="display:none" onchange="handleFile(event)">
+      <input type="file" id="tFileCam" accept="image/*" capture="environment" style="display:none" onchange="handleFile(event)">
+      <input type="file" id="tFileLib" accept="image/*,application/pdf" style="display:none" onchange="handleFile(event)">
       <img id="tPrev" class="prev" style="display:none">
-      <div class="ocr-box ocr-loading" id="ocrBox"></div>
+      <div class="ocr-box" id="ocrBox"></div>
       <button class="btn purple" id="ocrBtn" onclick="runOCR()" style="display:none">🤖 Leer ticket automáticamente</button>
     </div>
     <div class="card">
@@ -170,7 +176,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="card"><h2>📊 Resumen por categoría</h2><div id="eSummary"></div></div>
   <div class="card">
     <h2>📤 Generar documentos</h2>
-    <p style="font-size:13px;color:#8896a6;margin-bottom:14px">El informe incluye la tabla Nordex completa y todos los tickets adjuntos. Ábrelo y pulsa Imprimir para guardarlo como PDF.</p>
+    <p style="font-size:13px;color:#8896a6;margin-bottom:14px">Informe con tabla Nordex completa y tickets adjuntos. Ábrelo y pulsa Imprimir para PDF.</p>
     <button class="btn primary" onclick="exportCSV()">📊 Descargar CSV (Excel)</button>
     <button class="btn success" onclick="exportHTML()">📄 Generar informe completo</button>
   </div>
@@ -340,7 +346,7 @@ async function runOCR() {
     }
 
     box.className = 'ocr-box ocr-ok';
-    box.textContent = '✅ Datos extraídos automáticamente. Revisa y confirma.';
+    box.textContent = '✅ Datos extraídos. Revisa y confirma.';
     toast('✅ Ticket leído correctamente');
 
   } catch(err) {
@@ -370,7 +376,8 @@ function addTicket() {
   document.getElementById('tImp').value = '';
   document.getElementById('tDesc').value = '';
   document.getElementById('tPrev').style.display = 'none';
-  document.getElementById('tFile').value = '';
+  document.getElementById('tFileCam').value = '';
+  document.getElementById('tFileLib').value = '';
   document.getElementById('ocrBtn').style.display = 'none';
   document.getElementById('ocrBox').style.display = 'none';
   document.querySelectorAll('.cat').forEach(c => c.classList.remove('on'));
@@ -444,7 +451,7 @@ function exportHTML() {
 <div class="ib"><label>YEAR / MONTH</label>${viaje.from.split('-')[0]} / ${viaje.from.split('-')[1]}</div>
 <div class="ib"><label>LOCATION OF TRAVEL</label>${viaje.nom}</div>
 <div class="ib"><label>FROM / TO</label>${fmt(viaje.from)} — ${fmt(viaje.to)}</div>
-<div class="ib" style="grid-column:1/-1"><label>PURPOSE OF TRAVEL (Farms and/or Projects)</label>${viaje.pur||'—'}</div>
+<div class="ib" style="grid-column:1/-1"><label>PURPOSE OF TRAVEL</label>${viaje.pur||'—'}</div>
 <div class="ib"><label>OBJECTIVE CODE</label>${viaje.cod||'—'}</div>
 <div class="ib"><label>No. TICKETS</label>${tickets.length}</div>
 </div>
@@ -454,7 +461,7 @@ function exportHTML() {
 </tbody></table>
 <div class="sign">
 <div class="sb"><label>Name, surname and signature of Applicant</label><br><br>${viaje.name}</div>
-<div class="sb"><label>Name, surname and Signature of person responsible</label><br><br></div>
+<div class="sb"><label>Signature of person responsible</label><br><br></div>
 </div>
 <div class="sign" style="margin-top:8px">
 <div class="sb"><label>Submission date</label><br>${fmt(new Date().toISOString().split('T')[0])}</div>
@@ -464,7 +471,7 @@ ${imgs?`<div style="margin-top:28px"><h2 style="font-size:12px;border-bottom:2px
 </body></html>`;
   const b=new Blob([html],{type:'text/html;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='TravelExpenses_'+viaje.nom+'_'+viaje.from+'.html'; a.click();
-  toast('✅ Informe descargado — ábrelo y pulsa Imprimir para PDF');
+  toast('✅ Informe descargado');
 }
 
 load();
